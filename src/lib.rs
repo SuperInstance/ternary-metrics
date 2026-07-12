@@ -416,4 +416,83 @@ mod tests {
         }
         assert_eq!(reg.get(idx).unwrap().sample_count(), 2);
     }
+
+    #[test]
+    fn test_registry_get_mut_invalid_index() {
+        let mut reg = MetricsRegistry::new();
+        reg.register("lat", MetricKind::Latency);
+        assert!(reg.get_mut(99).is_none());
+        assert!(reg.get(99).is_none());
+    }
+
+    #[test]
+    fn test_report_display_na_for_empty_collector() {
+        let mut reg = MetricsRegistry::new();
+        let _ = reg.register("idle", MetricKind::Latency);
+        let report = MetricsReport::from_registry("Has Gaps", &reg);
+        let s = format!("{}", report);
+        assert!(s.contains("n=0"), "expected zero sample count, got: {}", s);
+        assert!(
+            s.contains("mean=N/A") && s.contains("min=N/A") && s.contains("max=N/A"),
+            "expected N/A placeholders for empty series, got: {}",
+            s,
+        );
+    }
+
+    #[test]
+    fn test_report_single_sample_min_eq_max() {
+        let mut reg = MetricsRegistry::new();
+        let idx = reg.register("one", MetricKind::Throughput);
+        reg.record(idx, 5, 42.0);
+        let report = MetricsReport::from_registry("Single", &reg);
+        let e = &report.entries[0];
+        assert_eq!(e.count, 1);
+        assert_eq!(e.mean, Some(42.0));
+        assert_eq!(e.min, Some(42.0));
+        assert_eq!(e.max, Some(42.0));
+        let s = format!("{}", report);
+        assert!(
+            s.contains("min=42.00") && s.contains("max=42.00"),
+            "got: {}",
+            s
+        );
+    }
+
+    #[test]
+    fn test_report_clone_is_independent_snapshot() {
+        let mut reg = MetricsRegistry::new();
+        let idx = reg.register("lat", MetricKind::Latency);
+        reg.record(idx, 0, 10.0);
+        let report = MetricsReport::from_registry("Orig", &reg);
+        let cloned = report.clone();
+        assert_eq!(cloned.title, report.title);
+        assert_eq!(cloned.entries.len(), report.entries.len());
+        assert_eq!(cloned.entries[0].mean, Some(10.0));
+        // Report is a snapshot: recording more data must not change either copy.
+        reg.record(idx, 1, 999.0);
+        let snapshot_again = MetricsReport::from_registry("Orig", &reg);
+        assert_eq!(report.entries[0].count, 1);
+        assert_eq!(cloned.entries[0].count, 1);
+        assert_eq!(snapshot_again.entries[0].count, 2);
+    }
+
+    #[test]
+    fn test_timeseries_clone_is_independent() {
+        let mut ts = TimeSeries::new("lat");
+        ts.push(0, 1.0);
+        let mirror = ts.clone();
+        assert_eq!(mirror.len(), 1);
+        ts.push(1, 2.0);
+        assert_eq!(ts.len(), 2);
+        assert_eq!(mirror.len(), 1, "clone must not see post-clone mutations");
+        assert_eq!(mirror.mean(), Some(1.0));
+    }
+
+    #[test]
+    fn test_timeseries_min_max_empty_direct() {
+        let ts = TimeSeries::new("empty");
+        assert_eq!(ts.min(), None);
+        assert_eq!(ts.max(), None);
+        assert_eq!(ts.mean(), None);
+    }
 }
