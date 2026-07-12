@@ -21,11 +21,17 @@ pub struct TimeSeries {
 
 impl TimeSeries {
     pub fn new(name: &str) -> Self {
-        Self { name: name.to_string(), samples: Vec::new() }
+        Self {
+            name: name.to_string(),
+            samples: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, timestamp_ms: u64, value: f64) {
-        self.samples.push(Sample { timestamp_ms, value });
+        self.samples.push(Sample {
+            timestamp_ms,
+            value,
+        });
     }
 
     pub fn len(&self) -> usize {
@@ -75,7 +81,11 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     pub fn new(name: &str, kind: MetricKind) -> Self {
-        Self { name: name.to_string(), kind, series: TimeSeries::new(name) }
+        Self {
+            name: name.to_string(),
+            kind,
+            series: TimeSeries::new(name),
+        }
     }
 
     pub fn record(&mut self, timestamp_ms: u64, value: f64) {
@@ -106,7 +116,9 @@ pub struct MetricsRegistry {
 
 impl MetricsRegistry {
     pub fn new() -> Self {
-        Self { collectors: Vec::new() }
+        Self {
+            collectors: Vec::new(),
+        }
     }
 
     pub fn register(&mut self, name: &str, kind: MetricKind) -> usize {
@@ -176,15 +188,22 @@ pub struct ReportEntry {
 
 impl MetricsReport {
     pub fn from_registry(title: &str, registry: &MetricsRegistry) -> Self {
-        let entries = registry.collectors.iter().map(|c| ReportEntry {
-            metric_name: c.name.clone(),
-            kind: c.kind,
-            count: c.sample_count(),
-            mean: c.average(),
-            min: c.min_value(),
-            max: c.max_value(),
-        }).collect();
-        Self { title: title.to_string(), entries }
+        let entries = registry
+            .collectors
+            .iter()
+            .map(|c| ReportEntry {
+                metric_name: c.name.clone(),
+                kind: c.kind,
+                count: c.sample_count(),
+                mean: c.average(),
+                min: c.min_value(),
+                max: c.max_value(),
+            })
+            .collect();
+        Self {
+            title: title.to_string(),
+            entries,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -199,8 +218,11 @@ impl fmt::Display for MetricsReport {
             let mean_str = e.mean.map_or("N/A".to_string(), |v| format!("{:.2}", v));
             let min_str = e.min.map_or("N/A".to_string(), |v| format!("{:.2}", v));
             let max_str = e.max.map_or("N/A".to_string(), |v| format!("{:.2}", v));
-            writeln!(f, "  {} ({:?}): n={}, mean={}, min={}, max={}",
-                e.metric_name, e.kind, e.count, mean_str, min_str, max_str)?;
+            writeln!(
+                f,
+                "  {} ({:?}): n={}, mean={}, min={}, max={}",
+                e.metric_name, e.kind, e.count, mean_str, min_str, max_str
+            )?;
         }
         Ok(())
     }
