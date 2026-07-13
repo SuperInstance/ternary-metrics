@@ -75,7 +75,7 @@ println!("{}", report);
 
 - **No expiration or downsampling.** Samples accumulate indefinitely. A long-running process with high-frequency recording will use unbounded memory. You'll need to externally manage sample retention.
 - **Statistics are O(n) per call.** There's no incremental tracking of mean/min/max. Each call to `average()`, `min_value()`, or `max_value()` iterates the full sample list.
-- **No thread safety.** `MetricsRegistry` and `MetricsCollector` are not `Send`/`Sync`. Use within a single task or wrap in a `Mutex` yourself.
+- **No interior mutability for concurrent recording.** `MetricsRegistry` and `MetricsCollector` auto-derive `Send` + `Sync`, but `record` requires `&mut self` — there is no lock-free interior mutability. To record from multiple threads, wrap the registry (or each collector) in a `Mutex`/`RwLock` yourself.
 - **Percentiles are not available.** Only mean, min, and max. If you need p50/p95/p99, you'd need to sort samples yourself or extend the crate.
 
 ## Use Cases
